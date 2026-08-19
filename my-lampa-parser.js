@@ -1,13 +1,16 @@
 (function () {
     'use strict';
 
+    if (window.my_asus_lampa_plugin) return;
+    window.my_asus_lampa_plugin = true;
+
     function startPlugin() {
         if (!window.Lampa) return;
 
         var SERVER_URL = 'http://192.168.0.103:3000';
 
-        // 1. Реєструємо нативний компонент "online"
-        Lampa.Component.add('online', function (object) {
+        // 1. Створюємо екран вибору джерел від вашого Asus
+        Lampa.Component.add('asus_online_sources', function (object) {
             var scroll = new Lampa.Scroll({ mask: true, over: true });
             var files = new Lampa.Files();
 
@@ -40,11 +43,17 @@
 
                                 scroll.append(btn);
                             });
+                        } else {
+                            var empty = Lampa.Template.get('button', {
+                                title: 'Нічого не знайдено',
+                                description: 'Сервер Asus не знайшов джерел для цього фільму'
+                            });
+                            scroll.append(empty);
                         }
                     })
                     .catch(function () {
                         _this.activity.loader(false);
-                        Lampa.Noty.show('Помилка з\'єднання з Asus 192.168.0.103');
+                        Lampa.Noty.show('Немає зв\'язку з Asus (192.168.0.103:3000)');
                     });
 
                 return files.render();
@@ -64,6 +73,34 @@
             };
 
             this.render = function () { return files.render(); };
+        });
+
+        // 2. Врізаємо нову кнопку в меню "Джерело"
+        Lampa.Listener.follow('full', function (e) {
+            if (e.type === 'complite') {
+                var render = e.object.activity.render();
+
+                // При натисканні на кнопку "Дивитися" (Play)
+                render.find('.full-start__button').eq(0).off('hover:enter.asus').on('hover:enter.asus', function () {
+                    setTimeout(function () {
+                        var sourceMenu = $('.action-mains');
+                        if (sourceMenu.length && !sourceMenu.find('.asus-source-btn').length) {
+                            var btn = $('<div class="action-main selector asus-source-btn"><div class="action-main__title">Онлайн (Asus 103)</div></div>');
+
+                            btn.on('hover:enter', function () {
+                                Lampa.Activity.push({
+                                    title: 'Джерела: Asus Eee PC',
+                                    component: 'asus_online_sources',
+                                    movie: e.object.card
+                                });
+                            });
+
+                            // Вставляємо кнопку перед Торрентами або в кінець
+                            sourceMenu.prepend(btn);
+                        }
+                    }, 150);
+                });
+            }
         });
     }
 
